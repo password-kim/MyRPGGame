@@ -45,6 +45,93 @@ public class FighterControl : MonoBehaviour
 
     public ActionState myState = ActionState.None;
 
+    void ControlAnimation()
+    {
+        switch (myState)
+        {
+            case ActionState.Idle:
+                PlayAnimation(idleClip);
+                break;
+            case ActionState.Walk:
+                PlayAnimation(walkClip);
+                break;
+            case ActionState.Run:
+                PlayAnimation(runClip);
+                break;
+            case ActionState.Attack:
+                break;
+        }
+    }
+
+    void PlayAnimation(AnimationClip clip, bool isBlending = true)
+    {
+        myAnimation.clip = clip;
+        if (isBlending)
+        {
+            myAnimation.CrossFade(clip.name);
+        }
+        else
+        {
+            myAnimation.Play(clip.name);
+        }
+    }
+
+    void CheckState()
+    {
+        float moveSpeed = GetVelocitySpeed();
+        switch (myState)
+        {
+            case ActionState.Idle:
+                if(moveSpeed > 0.1f)
+                {
+                    myState = ActionState.Walk;
+                }
+                break;
+            case ActionState.Walk:
+                if(moveSpeed > 1.8f)
+                {
+                    myState = ActionState.Run;
+                }
+
+                if(moveSpeed < 0.1f)
+                {
+                    myState = ActionState.Idle;
+                }
+                break;
+            case ActionState.Run:
+                if(moveSpeed < 1.8f)
+                {
+                    myState = ActionState.Walk;
+                }
+                
+                if(moveSpeed < 0.1f)
+                {
+                    myState = ActionState.Idle;
+                }
+                break;
+            case ActionState.Attack:
+                break;
+        }
+    }
+
+    float GetVelocitySpeed()
+    {
+        if(myCharacterController.velocity == Vector3.zero)
+        {
+            velocity = Vector3.zero;
+            velocitySpeed = 0.0f;
+        }
+        else
+        {
+            Vector3 currentVelocity = myCharacterController.velocity;
+            currentVelocity.y = 0.0f;
+            velocitySpeed += Time.fixedDeltaTime * 2.0f;
+            velocity = Vector3.Lerp(velocity, currentVelocity, velocitySpeed);
+        }
+
+        return velocity.magnitude;
+    }
+
     void BodyDirectionChange()
     {
         if(myCharacterController.velocity.magnitude > 0.1f)
@@ -139,6 +226,11 @@ public class FighterControl : MonoBehaviour
     void Update()
     {
         Move();
+
         BodyDirectionChange();
+
+        CheckState();
+
+        ControlAnimation();
     }
 }
