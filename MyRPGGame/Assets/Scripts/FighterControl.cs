@@ -7,6 +7,7 @@ public class FighterControl : MonoBehaviour
     // 이동 관련
     private Transform myTransform = null;
     private CharacterController myCharacterController = null;
+    private Transform cameraTransform = null;
 
     public float moveSpeed = 2.0f;
     public float runSpeed = 3.5f;
@@ -18,6 +19,8 @@ public class FighterControl : MonoBehaviour
     private CollisionFlags collisionFlags = CollisionFlags.None;
 
     private Vector3 velocity = Vector3.zero;
+
+    public float bodyRotationNormaltime = 0.5f;
 
     // animation
     private Animation myAnimation = null;
@@ -42,6 +45,57 @@ public class FighterControl : MonoBehaviour
 
     public ActionState myState = ActionState.None;
 
+    void BodyDirectionChange()
+    {
+        if(myCharacterController.velocity.magnitude > 0.1f)
+        {
+            bodyRotationNormaltime += Time.fixedDeltaTime * 0.5f;
+        }
+        else
+        {
+            bodyRotationNormaltime = 0.5f;
+        }
+
+        Vector3 newForward = myCharacterController.velocity;
+        newForward.y = 0.0f;
+        newForward = newForward.normalized;
+
+        myTransform.forward = Vector3.Lerp(myTransform.forward, newForward, bodyRotationNormaltime);
+    }
+
+    private void OnGUI()
+    {
+        GUILayout.Label($"State : ({myState.ToString()})");
+
+        if(myCharacterController.velocity != Vector3.zero)
+        {
+            GUILayout.Label($"Velocity : {myCharacterController.velocity}");
+        }
+
+        GUILayout.Label($"Collision Flags : {collisionFlags.ToString()}");
+    }
+
+    void Move()
+    {
+        Vector3 forward = cameraTransform.TransformDirection(Vector3.forward);
+        forward.y = 0.0f;
+        forward = forward.normalized;
+        Vector3 right = new Vector3(forward.z, 0.0f, -forward.x);
+
+        float vertical = Input.GetAxis("Vertical");
+        float horizontal = Input.GetAxis("Horizontal");
+
+        Vector3 targetDirection = horizontal * right + vertical * forward;
+
+        moveDirection = Vector3.RotateTowards(moveDirection, targetDirection, rotateSpeed * Mathf.Deg2Rad * Time.deltaTime, 1000.0f);
+        moveDirection = moveDirection.normalized;
+
+        float speed = moveSpeed;
+        Vector3 moveAmount = (moveDirection * speed * Time.deltaTime);
+
+        collisionFlags = myCharacterController.Move(moveAmount);
+    }
+
     void OnAttackAnimationEvent()
     {
 
@@ -61,6 +115,7 @@ public class FighterControl : MonoBehaviour
         myTransform = GetComponent<Transform>();
         myCharacterController = GetComponent<CharacterController>();
         myAnimation = GetComponent<Animation>();
+        cameraTransform = Camera.main.transform;
 
         myAnimation.playAutomatically = false;
         myAnimation.Stop();
@@ -77,11 +132,13 @@ public class FighterControl : MonoBehaviour
         AddAnimationEvent("OnAttackAnimationEvent", attack03Clip);
 
         myState = ActionState.Idle;
+
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+        Move();
+        BodyDirectionChange();
     }
 }
