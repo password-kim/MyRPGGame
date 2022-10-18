@@ -40,10 +40,117 @@ public class FighterControl : MonoBehaviour
         Run = 2,
         Attack,
         Skill,
-        Die,
+        Die
     }
 
     public ActionState myState = ActionState.None;
+
+    public enum AttackState
+    {
+        None = -1,
+        Attack1,
+        Attack2,
+        Attack3
+    }
+
+    public AttackState attackState = AttackState.None;
+    public bool isOnNextAttack = false;
+
+    public const int LeftMouseButton = 0;
+    public const int RightMouseButton = 1;
+
+    private float verticalSpeed = 0.0f;
+    private float gravity = 9.8f;
+
+    void ApplyGravity()
+    {
+        if((collisionFlags & CollisionFlags.Below) != 0)
+        {
+            verticalSpeed = 0.0f;
+        }
+        else
+        {
+            verticalSpeed -= gravity * Time.deltaTime;
+        }
+    }
+
+    void InputControl()
+    {
+        if(Input.GetMouseButtonDown(LeftMouseButton) == true)
+        {
+            if(myState != ActionState.Attack)
+            {
+                myState = ActionState.Attack;
+                attackState = AttackState.Attack1;
+            }
+            else
+            {
+                switch (attackState)
+                {
+                    case AttackState.Attack1:
+                        if (myAnimation[attack01Clip.name].normalizedTime > 0.1f)
+                        {
+                            isOnNextAttack = true;
+                        }
+                        break;
+                    case AttackState.Attack2:
+                        if(myAnimation[attack02Clip.name].normalizedTime > 0.1f)
+                        {
+                            isOnNextAttack = true;
+                        }
+                        break;
+                    case AttackState.Attack3:
+                        if(myAnimation[attack03Clip.name].normalizedTime > 0.1f)
+                        {
+                            isOnNextAttack = true;
+                        }
+                        break;
+                }
+            }
+        }
+    }
+
+    void ControlAttackAnimation()
+    {
+        switch (attackState)
+        {
+            case AttackState.Attack1:
+                PlayAnimation(attack01Clip, false);
+                break;
+            case AttackState.Attack2:
+                PlayAnimation(attack02Clip, false);
+                break;
+            case AttackState.Attack3:
+                PlayAnimation(attack03Clip, false);
+                break;
+        }
+    }
+
+    void OnAttackAnimationEvent()
+    {
+        if(isOnNextAttack == false)
+        {
+            myState = ActionState.Idle;
+            attackState = AttackState.Attack1;
+        }
+        else
+        {
+            isOnNextAttack = false;
+            switch (attackState)
+            {
+                case AttackState.Attack1:
+                    attackState = AttackState.Attack2;
+                    break;
+                case AttackState.Attack2:
+                    attackState = AttackState.Attack3;
+                    break;
+                case AttackState.Attack3:
+                    attackState = AttackState.Attack1;
+                    break;
+            }
+        }
+    }
+
 
     void ControlAnimation()
     {
@@ -59,6 +166,7 @@ public class FighterControl : MonoBehaviour
                 PlayAnimation(runClip);
                 break;
             case ActionState.Attack:
+                ControlAttackAnimation();
                 break;
         }
     }
@@ -150,20 +258,13 @@ public class FighterControl : MonoBehaviour
         myTransform.forward = Vector3.Lerp(myTransform.forward, newForward, bodyRotationNormaltime);
     }
 
-    private void OnGUI()
-    {
-        GUILayout.Label($"State : ({myState.ToString()})");
-
-        if(myCharacterController.velocity != Vector3.zero)
-        {
-            GUILayout.Label($"Velocity : {myCharacterController.velocity}");
-        }
-
-        GUILayout.Label($"Collision Flags : {collisionFlags.ToString()}");
-    }
-
     void Move()
     {
+        if(myState == ActionState.Attack)
+        {
+            return;
+        }
+
         Vector3 forward = cameraTransform.TransformDirection(Vector3.forward);
         forward.y = 0.0f;
         forward = forward.normalized;
@@ -178,16 +279,18 @@ public class FighterControl : MonoBehaviour
         moveDirection = moveDirection.normalized;
 
         float speed = moveSpeed;
-        Vector3 moveAmount = (moveDirection * speed * Time.deltaTime);
+        if(myState == ActionState.Run)
+        {
+            speed = runSpeed;
+        }
+
+        Vector3 gravityVertical = new Vector3(0.0f, verticalSpeed, 0.0f);
+        Vector3 moveAmount = (moveDirection * speed * Time.deltaTime) + gravityVertical;
 
         collisionFlags = myCharacterController.Move(moveAmount);
     }
 
-    void OnAttackAnimationEvent()
-    {
-
-    }
-
+    
     void AddAnimationEvent(string funcName, AnimationClip clip)
     {
         AnimationEvent newEvent = new AnimationEvent();
@@ -225,6 +328,8 @@ public class FighterControl : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        ApplyGravity();
+
         Move();
 
         BodyDirectionChange();
@@ -232,5 +337,8 @@ public class FighterControl : MonoBehaviour
         CheckState();
 
         ControlAnimation();
+
+        InputControl();
+
     }
 }
